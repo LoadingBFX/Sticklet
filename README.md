@@ -1,5 +1,14 @@
 # 🌿 Sticklet: A Personal Receipt Journal by Scotty 🐶
-![Scotty fetching a stick](logo.png)
+![Scotty fetching a stick](assets/logo.png)
+
+
+## Setup 
+
+Create a virtual environment and install requirements.txt (Python version used: 3.13)
+```
+python app.py
+```
+
 
 ## Introduction
 
@@ -17,14 +26,14 @@ This project aims to build a multi-agent, LLM-integrated **personal receipt mana
 
 Users can upload receipt images to input their daily expenses. The system will automatically extract and structure key information using VLM-based OCR and reasoning agents. It reconstructs monthly spending trends, price variation, and consumer preferences. In future versions, the portal can be extended to support financial product tracking, spending tendency analysis, and information querying—enabling end-to-end personal financial assistance.
 
-![](strick_receipt.png)
+![](assets/strick_receipt.png)
 
-![](dashboard.png)
+![](assets/dashboard.png)
 
 ---
 
 ## 2. Agent Design and Modular Architecture
-![](architecture.png)
+![](assets/architecture.png)
 ```
 [User Upload]
      |
