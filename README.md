@@ -1,4 +1,5 @@
 # 🌿 Sticklet: A Personal Receipt Journal by Scotty 🐶
+![Scotty fetching a stick](logo.png)
 
 ## Introduction
 
@@ -16,9 +17,14 @@ This project aims to build a multi-agent, LLM-integrated **personal receipt mana
 
 Users can upload receipt images to input their daily expenses. The system will automatically extract and structure key information using VLM-based OCR and reasoning agents. It reconstructs monthly spending trends, price variation, and consumer preferences. In future versions, the portal can be extended to support financial product tracking, spending tendency analysis, and information querying—enabling end-to-end personal financial assistance.
 
+![](strick_receipt.png)
+
+![](dashboard.png)
+
 ---
 
 ## 2. Agent Design and Modular Architecture
+![](architecture.png)
 
 ### 1. Upload & Preprocessing Agent
 - **Function:** Handles user image upload and validates input format
