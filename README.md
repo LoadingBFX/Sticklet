@@ -25,6 +25,21 @@ Users can upload receipt images to input their daily expenses. The system will a
 
 ## 2. Agent Design and Modular Architecture
 ![](architecture.png)
+```
+[User Upload]
+     |
+[Upload & Preprocessing Agent]
+     |
+[Receipt Recognition Agent] --(Gemini API)--> [Structured Receipt JSON]
+     |
+     +-----------------------------+-----------------------------+-----------------------------+-----------------------------+
+     |                             |                             |                             |                             |
+[Categorization & Storage Agent]  [Consumption Analysis Agent]  [Preference Insight Agent]   [Recipe Agent](Optional)  [Financial Agent] (Optional)
+     |                             |                             |                             |                             |
+     v                             v                             v                             v                             v
+[Local DB / CSV]       [Monthly Summary / Charts]         [User Trends]                      [RAG]                         [Web]
+```
+
 
 ### 1. Upload & Preprocessing Agent
 - **Function:** Handles user image upload and validates input format
