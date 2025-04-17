@@ -5,7 +5,7 @@ import os
 import json
 
 from dotenv import load_dotenv
-from src.agents.receipt_reader import ReceiptReaderAgent
+from src.agents import ReceiptReaderAgent
 from src.utils.image_utils import validate_image, resize_image_if_needed
 
 # Load environment variables
