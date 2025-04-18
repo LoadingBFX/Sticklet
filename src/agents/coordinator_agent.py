@@ -7,7 +7,6 @@ import json
 import datetime
 import re
 
-from openai import OpenAI
 from langchain.agents import AgentExecutor, create_openai_functions_agent
 from langchain.memory import ConversationBufferMemory
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
@@ -15,8 +14,8 @@ from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage, HumanMessage
 
 from src.agents.receipt_reader_agent import ReceiptReaderAgent
-from src.utils.memory import PurchaseMemory, Purchase, PurchaseItem
-from src.tools.memory_tools import MemoryTool, InsightGeneratorTool
+from src.utils.memory import PurchaseMemory, Purchase, create_purchase_from_receipt_data
+from src.tools.memory_tools import MemoryTool, InsightGeneratorTool, SQLQueryTool
 from src.tools.receipt_processor_tool import ReceiptProcessorTool
 
 
@@ -27,19 +26,23 @@ class CoordinatorAgent:
     Now enhanced with LangChain agents and tools for improved functionality.
     """
     
-    def __init__(self, api_key: Optional[str] = None):
+    def __init__(self, api_key: Optional[str] = None, db_path: Optional[str] = None):
         """
         Initialize the coordinator agent with OpenAI API.
         
         Args:
             api_key: Optional OpenAI API key. If not provided, will try to load from environment.
+            db_path: Optional path to the SQLite database file.
         """
         self.api_key = api_key or os.environ.get("OPENAI_API_KEY")
         if not self.api_key:
             raise ValueError("OpenAI API key is required. Provide it directly or set OPENAI_API_KEY environment variable.")
         
-        # Initialize memory
-        self.memory = PurchaseMemory()
+        # Get database path from environment or use default
+        db_path = db_path or os.environ.get("DB_PATH")
+        
+        # Initialize memory with SQLite
+        self.memory = PurchaseMemory(db_path=db_path)
         
         # Initialize available specialized agents
         self._initialize_agents()
@@ -84,13 +87,15 @@ class CoordinatorAgent:
         # Initialize receipt reader if needed
         receipt_reader = self._get_agent("receipt_reader")
         
-        # Create tools
-        memory_tool = MemoryTool(memory=self.memory)
+        # Create tools with the current memory instance
+        # memory_tool = MemoryTool(memory=self.memory)
         receipt_tool = ReceiptProcessorTool(receipt_reader=receipt_reader, memory=self.memory)
         insight_tool = InsightGeneratorTool(memory=self.memory, openai_api_key=self.api_key)
+        sql_tool = SQLQueryTool(memory=self.memory)
         
-        self.tools = [memory_tool, receipt_tool, insight_tool]
-        
+        # self.tools = [memory_tool, receipt_tool, insight_tool, sql_tool]
+        self.tools = [receipt_tool, insight_tool, sql_tool]
+
         # Create system message
         system_message = """
         You are Scotty's Financial Assistant, an AI designed to help users manage their receipts and finances.
@@ -100,16 +105,31 @@ class CoordinatorAgent:
         2. Tracking purchase history and expenditures 
         3. Providing financial insights and recommendations
         4. Finding specific purchases when asked
+        5. Running SQL queries to analyze spending data
         
         Use the tools at your disposal to help users manage their finances:
-        - purchase_memory: Query the user's purchase history
+        - purchase_memory: Query the user's purchase history by merchant, category, date range, or get all purchases
         - receipt_processor: Process receipt images to extract data
         - insight_generator: Generate financial insights based on purchase history
+        - sql_query: Execute SQL queries against the purchase database for detailed analysis
         
-        Interact with users in a helpful, friendly manner. When users ask about their spending or purchases, 
-        search through their purchase history to provide accurate, specific answers.
+        DATABASE SCHEMA:
+        - purchases table: id, merchant_name, transaction_date, total_amount, currency, payment_method
+        - items table: id, purchase_id, name, price, quantity, category
         
+        When users ask about their spending or purchases:
+        1. For simple requests, use the purchase_memory tool
+        2. For complex analysis, use the sql_query tool with appropriate SQL queries
+        3. For summarizing spending patterns, use the insight_generator tool
+        
+        Example SQL queries for common questions:
+        - "How much did I spend at Trader Joe's?" -> SELECT SUM(total_amount) FROM purchases WHERE LOWER(merchant_name) LIKE LOWER('%Trader Joe%')
+        - "What groceries did I buy last month?" -> SELECT i.name, i.price, p.transaction_date FROM items i JOIN purchases p ON i.purchase_id = p.id WHERE LOWER(i.category) = 'grocery' AND p.transaction_date >= '2023-04-01' AND p.transaction_date <= '2023-04-30'
+        - "What are my top spending categories?" -> SELECT i.category, SUM(i.price * i.quantity) as total FROM items i GROUP BY i.category ORDER BY total DESC
+        
+        Interact with users in a helpful, friendly manner. Provide accurate, specific answers.
         Be thorough in your responses and try to anticipate follow-up questions.
+        Include relevant financial details and numbers in your responses.
         
         Decline requests unrelated to personal finance.
         """
@@ -119,7 +139,7 @@ class CoordinatorAgent:
         prompt = ChatPromptTemplate.from_messages([
             SystemMessage(content=system_message),
             MessagesPlaceholder(variable_name="chat_history"),
-            HumanMessage(content="{input}"),
+            ("human", "{input}"),  # Using tuple format to avoid template issues
             MessagesPlaceholder(variable_name="agent_scratchpad")
         ])
         
@@ -155,57 +175,23 @@ class CoordinatorAgent:
         Returns:
             Structured receipt data
         """
-        # Use the LangChain agent to process the receipt
-        result = self.agent_executor.invoke({
-            "input": f"Process this receipt image and extract all data: {image_path}"
-        })
-        
-        # Get the receipt reader agent as fallback
+        # Get the receipt reader agent
         receipt_reader = self._get_agent("receipt_reader")
         
-        # Attempt to extract receipt data from agent response
-        try:
-            # Check if result contains JSON data
-            response_text = result.get("output", "")
-            json_match = re.search(r'```json\n(.*?)\n```', response_text, re.DOTALL)
-            
-            if json_match:
-                receipt_data = json.loads(json_match.group(1))
-                return receipt_data
-        except:
-            # Fallback to direct processing
-            pass
-            
-        # Use direct processing as fallback
+        # Process the receipt directly (optimized to minimize API calls)
+        print("Processing receipt with receipt reader agent...")
         receipt_data = receipt_reader.process_receipt(image_path)
         
-        # Store the results in memory if needed
-        if "merchant_name" in receipt_data and "total_amount" in receipt_data:
-            # Create PurchaseItem objects
-            items = []
-            for item_data in receipt_data.get("items", []):
-                item = PurchaseItem(
-                    name=item_data.get("name", "Unknown Item"),
-                    price=float(item_data.get("price", 0.0)),
-                    quantity=int(item_data.get("quantity", 1)),
-                    category=item_data.get("category", "Other")
-                )
-                items.append(item)
-            
-            # Create Purchase object
-            purchase = Purchase(
-                merchant_name=receipt_data.get("merchant_name"),
-                transaction_date=receipt_data.get("transaction_date", datetime.datetime.now().strftime("%Y-%m-%d")),
-                total_amount=float(receipt_data.get("total_amount", 0.0)),
-                currency=receipt_data.get("currency", "USD"),
-                payment_method=receipt_data.get("payment_method"),
-                items=items
-            )
-            
+        # Store the results in memory
+        print("Creating purchase from receipt data...")
+        purchase = create_purchase_from_receipt_data(receipt_data)
+        if purchase:
             # Store the purchase
+            print(f"Storing purchase from {purchase.merchant_name} in database...")
             self.memory.add_purchase(purchase)
         
         return receipt_data
+    
     
     def get_purchase_history(self, 
                             merchant_name: Optional[str] = None, 
@@ -243,9 +229,28 @@ class CoordinatorAgent:
         Returns:
             Response from the agent
         """
-        # Run the query through the LangChain agent
-        result = self.agent_executor.invoke({
-            "input": query
-        })
-        
-        return result.get("output", "I'm sorry, I couldn't process your query.")
+        if not query or not query.strip():
+            return "I'm sorry, but I didn't receive a question. Could you please try asking again?"
+            
+        try:
+            # Check if purchase data is available
+            purchases = self.memory.get_all_purchases()
+            if not purchases:
+                return "I don't have any purchase data to analyze yet. Please upload some receipts first so I can answer questions about your spending."
+                
+            # Run the query through the LangChain agent
+            print(f"Processing user query: '{query}'")
+            result = self.agent_executor.invoke({
+                "input": query
+            })
+            
+            output = result.get("output", "")
+            if not output:
+                # Fallback for empty responses
+                return "I'm not sure how to answer that question. Could you try asking in a different way?"
+                
+            return output
+                
+        except Exception as e:
+            print(f"Error processing query: {str(e)}")
+            return f"I encountered an error while processing your question. The error was: {str(e)}. Please try a different question or check the system logs for more details."

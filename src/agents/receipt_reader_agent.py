@@ -6,7 +6,7 @@ import json
 import os
 import re
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List, Tuple
 
 from langchain.agents import AgentExecutor, create_react_agent
 from langchain.memory import ConversationBufferMemory
@@ -21,6 +21,7 @@ class ReceiptReaderAgent:
     Agent for reading and extracting structured data from receipts using Mistral API.
     Implements the Tool Use pattern by leveraging Mistral's OCR and vision capabilities.
     Now enhanced with LangChain for improved agent capabilities and tool usage.
+    Implements the Reflection pattern to validate and refine extraction results.
     """
     
     def __init__(self, api_key: Optional[str] = None):
@@ -39,8 +40,9 @@ class ReceiptReaderAgent:
         self.ocr_model = "mistral-ocr-latest"
         self.llm_model = "mistral-large-latest"
         
-        # LangChain setup
-        self._setup_langchain_agent()
+        # Initialize tools directly
+        self.ocr_tool = MistralOCRTool(api_key=self.api_key)
+        self.parser_tool = ReceiptParserTool(api_key=self.api_key)
     
     def _encode_image(self, image_path: str) -> str:
         """
@@ -52,75 +54,15 @@ class ReceiptReaderAgent:
         Returns:
             Base64-encoded image
         """
+        from src.utils.image_utils import encode_image_to_base64
+        
         with open(image_path, "rb") as image_file:
-            encoded = base64.b64encode(image_file.read()).decode("utf-8")
-        return encoded
-    
-    def _setup_langchain_agent(self):
-        """Set up the LangChain agent with tools."""
-        # Initialize the LLM
-        self.llm = ChatMistralAI(
-            model=self.llm_model,
-            mistral_api_key=self.api_key
-        )
+            return encode_image_to_base64(image_file.read())
         
-        # Initialize tools
-        self.tools = [
-            MistralOCRTool(api_key=self.api_key),
-            ReceiptParserTool(api_key=self.api_key)
-        ]
-        
-        # Set up prompt for ReAct agent
-        from langchain_core.prompts import PromptTemplate
-
-        # This template contains all the required variables that ReAct needs
-        template = """You are a sophisticated financial receipt analysis agent. 
-        Your job is to analyze receipt images by first extracting text using OCR, then parsing that text into structured data.
-        Follow these steps:
-        1. Use the mistral_ocr tool to extract text from the receipt image.
-        2. Use the receipt_parser tool to convert the text into structured data.
-        3. Return the final structured data in JSON format.
-
-        You have access to the following tools:
-
-        {tools}
-
-        Use the following format:
-
-        Question: the input question you must answer
-        Thought: you should always think about what to do
-        Action: the action to take, should be one of [{tool_names}]
-        Action Input: the input to the action
-        Observation: the result of the action
-        ... (this Thought/Action/Action Input/Observation can repeat N times)
-        Thought: I now know the final answer
-        Final Answer: the final answer to the original input question
-
-        Begin!
-
-        Question: {input}
-        {agent_scratchpad}
-        """
-        prompt = PromptTemplate.from_template(template)
-        
-        # Create agent
-        self.agent = create_react_agent(self.llm, self.tools, prompt)
-        
-        # Set up memory - Note: for ReAct agent, memory is handled differently
-        self.memory = ConversationBufferMemory(return_messages=True)
-        
-        # Create agent executor
-        self.agent_executor = AgentExecutor(
-            agent=self.agent,
-            tools=self.tools,
-            verbose=True,
-            handle_parsing_errors=True,
-            max_iterations=3
-        )
-            
     def process_receipt(self, image_path: str) -> Dict[str, Any]:
         """
-        Process a receipt image and extract structured data using LangChain agent with Mistral tools.
+        Process a receipt image and extract structured data.
+        Optimized to minimize API calls by doing a single OCR call and a single parse call.
         
         Args:
             image_path: Path to the receipt image file
@@ -129,91 +71,153 @@ class ReceiptReaderAgent:
             Dictionary containing extracted receipt information
         """
         try:
-            # Run the agent
-            result = self.agent_executor.invoke({
-                "input": f"Process this receipt image and extract all information: {image_path}"
-            })
+            # Step 1: Perform OCR once
+            print("Performing OCR on receipt image...")
+            ocr_text = self.ocr_tool._run(image_path)
             
-            # Check if agent response contains JSON
-            response_text = result.get("output", "")
+            if "Error performing OCR" in ocr_text:
+                return {"error": ocr_text}
             
-            # Attempt to find and parse JSON in the response
-            json_match = re.search(r'```json\n(.*?)\n```', response_text, re.DOTALL)
-            if json_match:
-                json_str = json_match.group(1)
-                try:
-                    parsed_json = json.loads(json_str)
-                    # Make sure we have the expected fields
-                    if "merchant_name" in parsed_json or "store" in parsed_json:
-                        # Normalize field names if needed
-                        if "store" in parsed_json and "merchant_name" not in parsed_json:
-                            parsed_json["merchant_name"] = parsed_json["store"]
-                        if "date" in parsed_json and "transaction_date" not in parsed_json:
-                            parsed_json["transaction_date"] = parsed_json["date"]
-                        if "total" in parsed_json and "total_amount" not in parsed_json:
-                            parsed_json["total_amount"] = parsed_json["total"]
-                        return parsed_json
-                except json.JSONDecodeError:
-                    pass
+            # Step 2: Parse the OCR text once
+            print("Parsing receipt text...")
+            parsed_data = self.parser_tool._run(ocr_text)
             
-            # Try using the tool outputs directly if agent doesn't return proper JSON
-            for step in result.get("intermediate_steps", []):
-                tool_result = step[1]
-                if isinstance(tool_result, dict) and ("merchant_name" in tool_result or "store" in tool_result):
-                    # Normalize field names if needed
-                    if "store" in tool_result and "merchant_name" not in tool_result:
-                        tool_result["merchant_name"] = tool_result["store"]
-                    if "date" in tool_result and "transaction_date" not in tool_result:
-                        tool_result["transaction_date"] = tool_result["date"]
-                    if "total" in tool_result and "total_amount" not in tool_result:
-                        tool_result["total_amount"] = tool_result["total"]
-                    return tool_result
+            # Store the OCR text in the parsed data for reference
+            if isinstance(parsed_data, dict) and "ocr_text" not in parsed_data:
+                parsed_data["ocr_text"] = ocr_text
             
-            # If all else fails, try direct approach
-            ocr_tool = MistralOCRTool(api_key=self.api_key)
-            parser_tool = ReceiptParserTool(api_key=self.api_key)
+            # Step 3: Normalize field names if needed
+            normalized_data = self._normalize_field_names(parsed_data)
             
-            ocr_text = ocr_tool._run(image_path)
-            parsed_data = parser_tool._run(ocr_text)
+            # Step 4: Reflect on and validate the results
+            print("Validating extracted data...")
+            validated_data = self._reflect_on_results(normalized_data)
             
-            # Testing support: If we're in a test environment and no API is available,
-            # this fallback ensures tests can run with mocked data
-            if not parsed_data or "error" in parsed_data:
-                # For testing purposes, if we're in a test environment
-                if "fake_path" in image_path or not Path(image_path).exists():
-                    return {
-                        "merchant_name": "Walmart",
-                        "transaction_date": "01/15/2023",
-                        "total_amount": 11.63,
-                        "currency": "USD",
-                        "items": [
-                            {"name": "Milk", "price": 3.99, "quantity": 1, "category": "Grocery"},
-                            {"name": "Bread", "price": 2.49, "quantity": 1, "category": "Grocery"},
-                            {"name": "Eggs", "price": 4.29, "quantity": 1, "category": "Grocery"}
-                        ],
-                        "tax": 0.86,
-                        "payment_method": "VISA"
-                    }
-            
-            return parsed_data
+            return validated_data
             
         except Exception as e:
             print(f"Error processing receipt: {e}")
-            
-            # For testing purposes, if we're in a test environment
-            if "fake_path" in image_path or (Path(image_path).exists() == False and "test" in image_path):
-                return {
-                    "merchant_name": "Walmart",
-                    "transaction_date": "01/15/2023",
-                    "total_amount": 11.63,
-                    "currency": "USD",
-                    "items": [
-                        {"name": "Milk", "price": 3.99, "quantity": 1, "category": "Grocery"},
-                        {"name": "Bread", "price": 2.49, "quantity": 1, "category": "Grocery"},
-                        {"name": "Eggs", "price": 4.29, "quantity": 1, "category": "Grocery"}
-                    ],
-                    "tax": 0.86,
-                    "payment_method": "VISA"
-                }
-                
             return {"error": str(e)}
+    
+    def _normalize_field_names(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Normalize field names to ensure consistent naming across the application.
+        
+        Args:
+            data: Dictionary containing parsed receipt data
+            
+        Returns:
+            Dictionary with normalized field names
+        """
+        normalized = data.copy()
+        
+        # Normalize common field name variations
+        if "store" in normalized and "merchant_name" not in normalized:
+            normalized["merchant_name"] = normalized["store"]
+            
+        if "date" in normalized and "transaction_date" not in normalized:
+            normalized["transaction_date"] = normalized["date"]
+            
+        if "total" in normalized and "total_amount" not in normalized:
+            normalized["total_amount"] = normalized["total"]
+            
+        return normalized
+            
+    def _reflect_on_results(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Implement the Reflection pattern to validate and potentially correct extracted data.
+        
+        Args:
+            data: The extracted receipt data to validate
+            
+        Returns:
+            Validated and potentially corrected receipt data
+        """
+        # Clone the data to avoid modifying the original
+        validated = data.copy()
+        
+        # Common validation issues to check
+        invalid_merchant_names = ["receipt", "groceries", "store", "supermarket", "market", "receipt data", "unknown"]
+        
+        # 1. Validate merchant name
+        if "merchant_name" in validated:
+            merchant = validated["merchant_name"]
+            
+            # Check if merchant name is too generic
+            if merchant and merchant.lower() in invalid_merchant_names:
+                # Try to find more specific merchant name in the ocr text
+                if "ocr_text" in validated:
+                    # Use the LLM to analyze the raw text for a better merchant name
+                    messages = [
+                        {
+                            "role": "system",
+                            "content": "You are a receipt analysis specialist. Extract the most likely merchant/store name from this receipt text."
+                        },
+                        {
+                            "role": "user",
+                            "content": f"Current extraction gave generic name '{merchant}'. Analyze this text to find the actual store name:\n\n{validated['ocr_text']}"
+                        }
+                    ]
+                    
+                    try:
+                        response = self.client.chat.complete(
+                            model=self.llm_model,
+                            messages=messages
+                        )
+                        better_merchant = response.choices[0].message.content.strip()
+                        
+                        # Only update if it found something more specific
+                        if better_merchant and better_merchant.lower() not in invalid_merchant_names:
+                            validated["merchant_name"] = better_merchant
+                            print(f"Reflection: Updated generic merchant name '{merchant}' to '{better_merchant}'")
+                    except Exception as e:
+                        print(f"Error during merchant name reflection: {e}")
+        
+        # 2. Validate transaction date
+        if "transaction_date" in validated:
+            date_str = validated["transaction_date"]
+            
+            # Basic format validation
+            if isinstance(date_str, str):
+                try:
+                    # Try to parse the date
+                    import datetime
+                    
+                    # Handle various date formats
+                    date_formats = ["%Y-%m-%d", "%m/%d/%Y", "%d/%m/%Y", "%Y/%m/%d"]
+                    parsed_date = None
+                    
+                    for fmt in date_formats:
+                        try:
+                            parsed_date = datetime.datetime.strptime(date_str, fmt).date()
+                            break
+                        except ValueError:
+                            continue
+                    
+                    # Check if the date is in the future
+                    if parsed_date and parsed_date > datetime.date.today():
+                        # Replace with today's date
+                        validated["transaction_date"] = datetime.date.today().strftime("%Y-%m-%d")
+                        print(f"Reflection: Corrected future date to today's date")
+                        
+                    # If valid date but wrong format, standardize to YYYY-MM-DD
+                    elif parsed_date:
+                        validated["transaction_date"] = parsed_date.strftime("%Y-%m-%d")
+                except Exception:
+                    # If date can't be parsed, leave as is
+                    pass
+        
+        # 3. Check item categories for reasonableness
+        if "items" in validated and isinstance(validated["items"], list):
+            for item in validated["items"]:
+                if "name" in item and "category" in item:
+                    item_name = item["name"].lower()
+                    category = item["category"]
+                    
+                    # Basic category validation (can be expanded with more rules)
+                    food_keywords = ["milk", "bread", "cheese", "beef", "chicken", "fish", "vegetable", "fruit"]
+                    if any(keyword in item_name for keyword in food_keywords) and category not in ["Grocery", "Restaurant"]:
+                        item["category"] = "Grocery"
+                        print(f"Reflection: Updated category for {item_name} to Grocery")
+        
+        return validated

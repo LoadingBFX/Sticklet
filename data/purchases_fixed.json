@@ -1,0 +1,166 @@
+[
+  {
+    "merchant_name": "Whole Foods Market",
+    "transaction_date": "2024-04-12",
+    "total_amount": 78.45,
+    "items": [
+      {
+        "name": "Organic Bananas",
+        "price": 3.99,
+        "quantity": 1,
+        "category": "Grocery"
+      },
+      {
+        "name": "Greek Yogurt",
+        "price": 5.49,
+        "quantity": 2,
+        "category": "Grocery"
+      },
+      {
+        "name": "Avocado",
+        "price": 1.99,
+        "quantity": 3,
+        "category": "Grocery"
+      },
+      {
+        "name": "Chicken Breast",
+        "price": 12.99,
+        "quantity": 1,
+        "category": "Grocery"
+      },
+      {
+        "name": "Sparkling Water",
+        "price": 4.99,
+        "quantity": 2,
+        "category": "Grocery"
+      }
+    ],
+    "currency": "USD",
+    "payment_method": "VISA",
+    "id": "b5061497-6905-5545-9735-72dac003e8df"
+  },
+  {
+    "merchant_name": "Target",
+    "transaction_date": "2024-04-10",
+    "total_amount": 152.67,
+    "items": [
+      {
+        "name": "T-Shirt",
+        "price": 19.99,
+        "quantity": 2,
+        "category": "Clothing"
+      },
+      {
+        "name": "Household Cleaner",
+        "price": 4.99,
+        "quantity": 1,
+        "category": "Household"
+      },
+      {
+        "name": "Paper Towels",
+        "price": 9.99,
+        "quantity": 1,
+        "category": "Household"
+      },
+      {
+        "name": "USB Cable",
+        "price": 12.99,
+        "quantity": 1,
+        "category": "Electronics"
+      },
+      {
+        "name": "Snack Bars",
+        "price": 4.99,
+        "quantity": 3,
+        "category": "Grocery"
+      }
+    ],
+    "currency": "USD",
+    "payment_method": "MASTERCARD",
+    "id": "cd063a9a-2885-5fa2-89af-6c1b154b1aec"
+  },
+  {
+    "merchant_name": "Home Depot",
+    "transaction_date": "2024-04-05",
+    "total_amount": 87.32,
+    "items": [
+      {
+        "name": "Plant Pot",
+        "price": 12.99,
+        "quantity": 2,
+        "category": "Household"
+      },
+      {
+        "name": "Potting Soil",
+        "price": 7.99,
+        "quantity": 1,
+        "category": "Household"
+      },
+      {
+        "name": "Light Bulbs",
+        "price": 15.99,
+        "quantity": 1,
+        "category": "Household"
+      },
+      {
+        "name": "Tool Set",
+        "price": 29.99,
+        "quantity": 1,
+        "category": "Household"
+      }
+    ],
+    "currency": "USD",
+    "payment_method": "AMEX",
+    "id": "8c673809-f446-5a5b-b9b8-1c07d77bd60b"
+  },
+  {
+    "merchant_name": "Chipotle",
+    "transaction_date": "2024-04-02",
+    "total_amount": 22.45,
+    "items": [
+      {
+        "name": "Burrito Bowl",
+        "price": 11.95,
+        "quantity": 1,
+        "category": "Restaurant"
+      },
+      {
+        "name": "Chips & Guacamole",
+        "price": 4.75,
+        "quantity": 1,
+        "category": "Restaurant"
+      },
+      {
+        "name": "Soft Drink",
+        "price": 2.95,
+        "quantity": 1,
+        "category": "Restaurant"
+      }
+    ],
+    "currency": "USD",
+    "payment_method": "VISA",
+    "id": "d481b59f-00d8-5a5b-b8cc-ebaf151a9a5d"
+  },
+  {
+    "merchant_name": "Amazon",
+    "transaction_date": "2024-03-28",
+    "total_amount": 67.94,
+    "items": [
+      {
+        "name": "Wireless Earbuds",
+        "price": 49.99,
+        "quantity": 1,
+        "category": "Electronics"
+      },
+      {
+        "name": "Phone Case",
+        "price": 17.95,
+        "quantity": 1,
+        "category": "Electronics"
+      }
+    ],
+    "currency": "USD",
+    "payment_method": "VISA",
+    "id": "0324f7e5-6841-5b3f-96f3-b3dc3db74dda"
+  }
+]

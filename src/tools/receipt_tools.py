@@ -38,8 +38,10 @@ class MistralOCRTool(BaseTool):
         Returns:
             Base64 encoded string of the image
         """
+        from src.utils.image_utils import encode_image_to_base64
+        
         with open(image_path, "rb") as image_file:
-            return base64.b64encode(image_file.read()).decode("utf-8")
+            return encode_image_to_base64(image_file.read())
     
     def _run(self, image_path: str) -> str:
         """
@@ -168,6 +170,8 @@ class ReceiptParserTool(BaseTool):
             Structured data extracted from the receipt
         """
         try:
+            print(f"Parsing receipt text ({len(receipt_text)} chars)")
+            
             # Send to Mistral for structured extraction
             messages = [
                 {
@@ -191,8 +195,10 @@ class ReceiptParserTool(BaseTool):
             # Find JSON in the response (in case there's additional text)
             json_match = re.search(r'```json\n(.*?)\n```', response_text, re.DOTALL)
             if json_match:
+                print("Found JSON code block in response")
                 json_str = json_match.group(1)
             else:
+                print("No JSON code block found, using entire response")
                 json_str = response_text
                 
             # Clean up the string to make it valid JSON
@@ -201,9 +207,20 @@ class ReceiptParserTool(BaseTool):
             
             try:
                 parsed_data = json.loads(json_str)
+                
+                # Always include the OCR text in the parsed data
+                parsed_data["ocr_text"] = receipt_text
+                
+                print(f"Successfully parsed receipt data with fields: {', '.join(sorted(parsed_data.keys()))}")
                 return parsed_data
-            except json.JSONDecodeError:
-                return {"raw_text": response_text, "ocr_text": receipt_text}
+            except json.JSONDecodeError as e:
+                print(f"JSON decode error: {e}")
+                return {
+                    "error": f"Failed to parse JSON: {e}",
+                    "raw_text": response_text, 
+                    "ocr_text": receipt_text
+                }
             
         except Exception as e:
+            print(f"Error in receipt parser: {e}")
             return {"error": str(e), "ocr_text": receipt_text}

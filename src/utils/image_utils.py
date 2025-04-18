@@ -1,67 +1,105 @@
-from typing import List, Tuple, Optional
-from pathlib import Path
+"""
+Utility functions for working with images.
+"""
 import base64
-from io import BytesIO
+import io
+from typing import Tuple, Optional
 from PIL import Image
+
+
+def encode_image_to_base64(image_bytes: bytes) -> str:
+    """
+    Encode an image as base64 string.
+    
+    Args:
+        image_bytes: Raw bytes of the image file
+        
+    Returns:
+        Base64 encoded string
+    """
+    return base64.b64encode(image_bytes).decode('utf-8')
+
+
+def decode_base64_to_image(base64_string: str) -> bytes:
+    """
+    Decode a base64 string back to image bytes.
+    
+    Args:
+        base64_string: Base64 encoded string
+        
+    Returns:
+        Raw bytes of the image
+    """
+    return base64.b64decode(base64_string)
+
 
 def validate_image(image_bytes: bytes) -> Tuple[bool, Optional[str]]:
     """
-    Validates image data to ensure it's a usable image.
+    Validate that bytes represent a valid image.
     
     Args:
-        image_bytes: Raw image bytes to validate
+        image_bytes: Raw bytes of the image file
         
     Returns:
         Tuple of (is_valid, error_message)
     """
     try:
-        img = Image.open(BytesIO(image_bytes))
-        img.verify()
+        # Try to open the image with PIL
+        img = Image.open(io.BytesIO(image_bytes))
+        img.verify()  # Verify it's a valid image
         return True, None
     except Exception as e:
         return False, str(e)
 
+
 def resize_image_if_needed(image_bytes: bytes, max_size_mb: float = 5.0) -> bytes:
     """
-    Resizes an image if it exceeds the maximum size limit.
+    Resize an image if it exceeds the maximum size.
     
     Args:
-        image_bytes: Raw image bytes
-        max_size_mb: Maximum size in MB
+        image_bytes: Raw bytes of the image file
+        max_size_mb: Maximum size in megabytes
         
     Returns:
-        Potentially resized image bytes
+        Raw bytes of the resized image (or original if no resize needed)
     """
+    # Convert MB to bytes
     max_bytes = max_size_mb * 1024 * 1024
     
+    # Check if resize is needed
     if len(image_bytes) <= max_bytes:
         return image_bytes
     
-    img = Image.open(BytesIO(image_bytes))
+    # Calculate resize ratio
+    ratio = (max_bytes / len(image_bytes)) ** 0.5
     
-    # Calculate scaling factor based on size
-    scale_factor = (max_bytes / len(image_bytes)) ** 0.5
+    # Open the image
+    img = Image.open(io.BytesIO(image_bytes))
     
-    # Resize image
-    new_width = int(img.width * scale_factor)
-    new_height = int(img.height * scale_factor)
-    img_resized = img.resize((new_width, new_height), Image.LANCZOS)
+    # Calculate new dimensions
+    new_width = int(img.width * ratio)
+    new_height = int(img.height * ratio)
     
-    # Save to bytes
-    output = BytesIO()
-    img_resized.save(output, format=img.format)
+    # Resize the image
+    img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+    
+    # Convert back to bytes
+    output = io.BytesIO()
+    img.save(output, format=img.format if img.format else 'JPEG', quality=85)
     output.seek(0)
     
-    return output.getvalue()
+    return output.read()
 
-def encode_image_to_base64(image_bytes: bytes) -> str:
+
+def get_image_dimensions(image_bytes: bytes) -> Tuple[int, int]:
     """
-    Encodes image bytes to a base64 string.
+    Get the dimensions of an image.
     
     Args:
-        image_bytes: Raw image bytes
+        image_bytes: Raw bytes of the image file
         
     Returns:
-        Base64 encoded string
+        Tuple of (width, height)
     """
-    return base64.b64encode(image_bytes).decode("utf-8")
+    img = Image.open(io.BytesIO(image_bytes))
+    return img.width, img.height
