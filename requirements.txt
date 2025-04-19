@@ -113,3 +113,10 @@ yarg==0.1.10
 zstandard==0.23.0
 seaborn
 yfinance
+streamlit
+python-dotenv
+pillow
+mistralai
+pytest
+watchdog
+plotly
