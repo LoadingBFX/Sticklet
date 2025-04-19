@@ -209,6 +209,31 @@ class PurchaseMemory:
             raise e
         finally:
             conn.close()
+
+    def delete_purchase(self, purchase_id: str) -> None:
+        """
+        Delete a purchase and its items by purchase_id.
+        """
+        conn = sqlite3.connect(self.db_path)
+        try:
+            cursor = conn.cursor()
+            # delete items first (FK constraint)
+            cursor.execute(
+                "DELETE FROM items WHERE purchase_id = ?",
+                (purchase_id,)
+            )
+            # delete the purchase record
+            cursor.execute(
+                "DELETE FROM purchases WHERE id = ?",
+                (purchase_id,)
+            )
+            conn.commit()
+        except Exception as e:
+            conn.rollback()
+            print(f"Error deleting purchase {purchase_id}: {e}")
+            raise
+        finally:
+            conn.close()
     
     def get_all_purchases(self) -> List[Purchase]:
         """

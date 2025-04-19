@@ -13,7 +13,9 @@ from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage, HumanMessage
 
+from src.agents.montly_report_agent import MonthlyReportAgent
 from src.agents.receipt_reader_agent import ReceiptReaderAgent
+from src.agents.market_agent import MarketAgent
 from src.utils.memory import PurchaseMemory, Purchase, create_purchase_from_receipt_data
 from src.tools.memory_tools import MemoryTool, InsightGeneratorTool, SQLQueryTool
 from src.tools.receipt_processor_tool import ReceiptProcessorTool
@@ -54,7 +56,9 @@ class CoordinatorAgent:
         """Initialize the specialized agents."""
         # Dictionary of agent initializers to be called only when needed
         self.agent_initializers = {
-            "receipt_reader": lambda: self._init_receipt_reader()
+            "receipt_reader":       lambda: self._init_receipt_reader(),
+            "monthly_report":       lambda: self._init_monthly_report_agent(),
+            "market":               lambda: self._init_market_agent(),
         }
         
         # Dictionary to store initialized agents
@@ -63,6 +67,15 @@ class CoordinatorAgent:
     def _init_receipt_reader(self):
         """Initialize the receipt reader agent on demand."""
         return ReceiptReaderAgent()
+
+    def _init_monthly_report_agent(self):
+        """Initialize the monthly report agent on demand."""
+        # pass along same API key and DB path
+        return MonthlyReportAgent()
+
+    def _init_market_agent(self):
+        """Initialize the market agent on demand."""
+        return MarketAgent()
     
     def _get_agent(self, agent_name: str):
         """Get an agent, initializing it if necessary."""
@@ -182,18 +195,36 @@ class CoordinatorAgent:
         print("Processing receipt with receipt reader agent...")
         receipt_data = receipt_reader.process_receipt(image_path)
         
-        # Store the results in memory
-        print("Creating purchase from receipt data...")
-        purchase = create_purchase_from_receipt_data(receipt_data)
-        if purchase:
-            # Store the purchase
-            print(f"Storing purchase from {purchase.merchant_name} in database...")
-            self.memory.add_purchase(purchase)
+        # # Store the results in memory
+        # print("Creating purchase from receipt data...")
+        # purchase = create_purchase_from_receipt_data(receipt_data)
+        # if purchase:
+        #     # Store the purchase
+        #     print(f"Storing purchase from {purchase.merchant_name} in database...")
+        #     self.memory.add_purchase(purchase)
         
         return receipt_data
-    
-    
-    def get_purchase_history(self, 
+
+    def save_calibrated_receipt(self, calibrated_data: Dict[str, Any]) -> None:
+        """
+        Receive the complete receipt_data that has been reviewed and merged by
+        the user from the original raw_result, then create a Purchase record and
+        store it in the database.
+        """
+        purchase = create_purchase_from_receipt_data(calibrated_data)
+        if purchase:
+            self.memory.add_purchase(purchase)
+
+    def delete_purchase(self, purchase_id: str) -> None:
+        """
+        Delete a purchase record by its ID from the purchase memory.
+
+        Args:
+            purchase_id: The unique identifier of the purchase to delete.
+        """
+        self.memory.delete_purchase(purchase_id)
+
+    def get_purchase_history(self,
                             merchant_name: Optional[str] = None, 
                             category: Optional[str] = None,
                             start_date: Optional[str] = None,
@@ -254,3 +285,41 @@ class CoordinatorAgent:
         except Exception as e:
             print(f"Error processing query: {str(e)}")
             return f"I encountered an error while processing your question. The error was: {str(e)}. Please try a different question or check the system logs for more details."
+
+    def gen_monthly_report(self, month: int, year: Optional[int] = None) -> str:
+        """
+        Generate a bullet-pointed spending report for the given month.
+        Delegates to the MonthlyReportAgent.
+        """
+        monthly_agent = self._get_agent("monthly_report")
+        return monthly_agent.process_monthly_report(month, year)
+
+    def get_market_indicators(self) -> Dict[str, float]:
+        """
+        Fetch today's latest market indicators using MarketAgent.
+
+        Returns:
+            Dict mapping tickers ('^GSPC', '^DJI', '^IXIC') to closing price.
+        """
+        market = self._get_agent("market")
+        return market.get_current_indicators()
+
+    def get_market_history(self) -> Dict[str, Any]:
+        """
+        Fetch 7-day historical index data for major US markets.
+
+        Returns:
+            Dict mapping tickers to pandas.Series of closing prices.
+        """
+        market = self._get_agent("market")
+        return market.get_7day_history()
+
+    def generate_daily_market_report(self) -> str:
+        """
+        Generate a narrative market summary for today.
+
+        Returns:
+            A descriptive paragraph summarizing today's market.
+        """
+        market = self._get_agent("market")
+        return market.generate_daily_summary()
