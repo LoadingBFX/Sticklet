@@ -5,7 +5,8 @@ import os
 import json
 from unittest.mock import patch, MagicMock
 
-from src.agents.receipt_reader import ReceiptReaderAgent
+from src.agents import ReceiptReaderAgent
+from langchain_core.messages import AIMessage
 
 # Skip tests if no API key is available
 requires_api_key = pytest.mark.skipif(
@@ -23,7 +24,7 @@ def test_receipt_reader_agent_initialization():
     assert agent is not None
     assert agent.client is not None
     assert agent.ocr_model == "mistral-ocr-latest"
-    assert agent.llm_model == "mistral-small-latest"
+    assert agent.llm_model == "mistral-large-latest"  # Updated model name
     
 @requires_api_key
 def test_image_encoding():
@@ -44,7 +45,9 @@ def test_image_encoding():
     assert len(encoded) > 0
 
 @patch('mistralai.Mistral')
-def test_process_receipt_mock(mock_mistral):
+@patch('langchain_mistralai.ChatMistralAI')
+@patch('langchain.agents.AgentExecutor')
+def test_process_receipt_mock(mock_agent_executor, mock_langchain_mistral, mock_mistral):
     """Test the receipt processing with mocked API responses."""
     # Setup mock responses
     mock_client = MagicMock()
@@ -64,28 +67,28 @@ Total: $11.63
 VISA ****1234"""
     mock_client.ocr.process.return_value = mock_ocr_response
     
-    # Mock Chat response
-    mock_message = MagicMock()
-    mock_message.content = """```json
-{
-  "store": "Walmart",
-  "date": "01/15/2023",
-  "total": 11.63,
-  "currency": "USD",
-  "items": [
-    {"name": "Milk", "price": 3.99},
-    {"name": "Bread", "price": 2.49},
-    {"name": "Eggs", "price": 4.29}
-  ],
-  "tax": 0.86,
-  "payment_method": "VISA"
-}
-```"""
-    mock_choice = MagicMock()
-    mock_choice.message = mock_message
-    mock_chat_response = MagicMock()
-    mock_chat_response.choices = [mock_choice]
-    mock_client.chat.complete.return_value = mock_chat_response
+    # Mock LangChain agent response
+    parsed_receipt = {
+        "merchant_name": "Walmart",
+        "transaction_date": "01/15/2023",
+        "total_amount": 11.63,
+        "currency": "USD",
+        "items": [
+            {"name": "Milk", "price": 3.99, "quantity": 1, "category": "Grocery"},
+            {"name": "Bread", "price": 2.49, "quantity": 1, "category": "Grocery"},
+            {"name": "Eggs", "price": 4.29, "quantity": 1, "category": "Grocery"}
+        ],
+        "tax": 0.86,
+        "payment_method": "VISA"
+    }
+    
+    # Configure the mocked AgentExecutor to return the parsed receipt
+    mock_agent_instance = MagicMock()
+    mock_agent_executor.return_value = mock_agent_instance
+    mock_agent_instance.invoke.return_value = {
+        "output": json.dumps(parsed_receipt),
+        "intermediate_steps": []
+    }
     
     # Create agent with mocked client
     agent = ReceiptReaderAgent(api_key="fake_api_key")
@@ -94,9 +97,10 @@ VISA ****1234"""
     result = agent.process_receipt("fake_path.jpg")
     
     # Verify the result has the right structure
-    assert result["store"] == "Walmart"
-    assert result["date"] == "01/15/2023"
-    assert result["total"] == 11.63
+    assert result["merchant_name"] == "Walmart"
+    assert result["transaction_date"] == "01/15/2023"
+    assert result["total_amount"] == 11.63
     assert len(result["items"]) == 3
-    assert result["tax"] == 0.86
+    assert result["items"][0]["name"] == "Milk"
+    assert result["items"][1]["price"] == 2.49
     assert result["payment_method"] == "VISA"
