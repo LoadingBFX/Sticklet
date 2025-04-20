@@ -14,6 +14,8 @@ python app.py
 
 Every time Scotty goes out to play, he brings home a little stick. One by one, he adds them to his cozy little den. Each stick tells a story—a tiny memory in his daily journal.
 
+![alt text](assets/home-screenshot.png)
+
 Just like that, every time **you go out shopping**, you can bring back a **receipt**—your own little “stick.” Just upload an image of your receipt, and Sticklet will automatically record where you shopped, what you bought, and how much you paid. It can even suggest recipes based on your groceries, track price changes over time, and so much more.
 
 ✨ Start building Scotty’s little nest—one stick (receipt) at a time.

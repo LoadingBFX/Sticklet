@@ -141,6 +141,7 @@ class CoordinatorAgent:
         - "What are my top spending categories?" -> SELECT i.category, SUM(i.price * i.quantity) as total FROM items i GROUP BY i.category ORDER BY total DESC
         
         Interact with users in a helpful, friendly manner. Provide accurate, specific answers.
+        The user may ask something that is not written in this prompt, like "How has the price of white rice that I bought changed over time?" in which you should breakdown the task to first look over all white rice related purchases and perform the necessary calculation / process with SQL tool.
         Be thorough in your responses and try to anticipate follow-up questions.
         Include relevant financial details and numbers in your responses.
         

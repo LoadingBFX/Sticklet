@@ -96,7 +96,7 @@ def main():
 
     # Sidebar for navigation
     st.sidebar.title("Navigation")
-    page = st.sidebar.radio("Go to", ["Home", "Receipts", "Monthly Report", "Market & News", "Ask Questions"])
+    page = st.sidebar.radio("Go to", ["Home", "Receipts History", "Monthly Report", "Ask Questions", "Market & News"])
 
 
     if page == "Home":
@@ -430,7 +430,7 @@ def main():
     #                 except Exception as e:
     #                     st.error(f"Error processing receipt: {e}")
     #                     st.stop()
-    elif page == "Receipts":
+    elif page == "Receipts History":
         purchases = coordinator.get_purchase_history()
         merchant_count = len(set(p.merchant_name for p in purchases))
         col1, col2 = st.columns(2)
