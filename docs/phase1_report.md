@@ -1,5 +1,10 @@
 # Research and Planning Report
+
+94-815 Agent Based Modelling and Agentic Technology
+
 Team 8 - Fanxing Bu, Ivan Wiryadi
+
+\newpage
 
 ## Project Overview
 
@@ -8,63 +13,35 @@ The base aim for our project is to build an application (portal) using LLM based
 1. Visualize trends and data, e.g. weekly or monthly expenses.
 2. Discuss with the user about anything relating to their expenses.
 
-
 ## 1. Overview of Selected Agent Patterns
 
-### 1.1 Multi-Agent Pattern
-The Multi-Agent pattern is central to our Sticklet system architecture, implemented through the `CoordinatorAgent` class coordinating specialized worker agents. This pattern:
-- Centralizes user interactions through a single coordinator agent
-- Distributes specialized tasks to purpose-built agents (ReceiptReader, MonthlyReport, Market)
-- Also creates separation of concerns / modularity for maintainability and scalability
+![Sticklet Architecture Overview](../assets/architecture_overview.png)
 
-### 1.2 ReAct Pattern
-The ReAct (Reasoning + Acting) pattern is implemented in the coordinator agent through LangChain's `create_react_agent` function:
+### 1.1. Human Reflection Pattern
 
-```python
-self.agent = create_react_agent(
-    llm=self.llm,
-    tools=self.tools,
-    prompt=prompt
-)
-```
+The Human Reflection pattern in Sticklet enables users to validate and correct AI-processed information through the Streamlit interface. In `app.py`, users can review extracted receipt data (merchant name, date, items, prices), make corrections, and confirm before saving to the database. This pattern increases accuracy by allowing humans to correct mistakes in AI processing, which is particularly important for financial data where errors could lead to incorrect insights.
 
-This pattern enables:
-- Step-by-step reasoning before taking actions
-- Explicit thought processes for improved transparency
-- Dynamic planning based on interim results
-- Better error handling through reasoning
+### 1.2. Tool/Agent Registry Pattern
 
-The ReAct pattern, as implemented in LangChain, allows the agent to reason through financial queries in a loop of:
-1. **Thought**: The agent considers what information it needs and what steps to take
-2. **Action**: The agent decides which tool to use and what input to provide
-3. **Observation**: The agent processes the tool's output
-4. **Repeat** until the agent has enough information to answer the query
+The Tool/Agent Registry pattern is implemented in the `CoordinatorAgent` class which maintains a centralized registry of specialized agents and tools. The coordinator uses `_initialize_agents()` and `_get_agent()` methods to lazily initialize and retrieve specialized agents only when needed. Each specialized agent also has access to its required tools - for example, `ReceiptReaderAgent` has OCR and parsing tools, while `MonthlyReportAgent` has access to SQL tools. This pattern enables resource conservation, provides a clean API for agent access, and facilitates modular development.
 
-This pattern is particularly valuable for complex financial queries that require multiple steps of reasoning and tool use, such as analyzing spending patterns or identifying budget optimization opportunities.
+### 1.3. Role-Based Agent Coordination Pattern
 
-### 1.3 Self-Reflection Pattern
-The Self-Reflection pattern is implemented in the `ReceiptReaderAgent` through the `_reflect_on_results` method. Before the agent passess back the results to Coordinator, it attempt to self-correct the parsed results. For example, when the OCR produces generic merchant names like "receipt" or "store," the reflection mechanism attempts to find a more specific merchant name from the raw text.
+The Role-Based Agent Coordination pattern distributes specialized tasks to purpose-built agents while the `CoordinatorAgent` orchestrates their activities. Each agent has a distinct role:
 
+- `ReceiptReaderAgent`: Extracts structured data from receipt images
+- `MonthlyReportAgent`: Generates financial reports based on spending history
+- `MarketAgent`: Retrieves and analyzes market information
 
-### 1.3 Human-Reflection Pattern
-While it may not exactly be human-reflection as described in [AGENT DESIGN PATTERN CATALOGUE], we utilize a design pattern to allow users correct any mistakes in the parsed receipt results through the interface. 
+The coordinator delegates specific tasks to these specialized agents through methods like `process_receipt()`, `gen_monthly_report()`, and `get_market_indicators()`. This pattern reduces complexity through separation of concerns, allows for specialized optimizations in each agent, and enables parallel development of different agent capabilities.
 
+### 1.4. Self-Reflection Pattern
 
-### 1.4 Tool Use Pattern
-The Tool Use pattern enables our agents to perform specialized tasks by leveraging dedicated utility functions:
-- `SQLQueryTool`: Executes structured queries against the purchase database
-- `ReceiptProcessorTool`: Processes receipt images and extracts structured data
-- `InsightGeneratorTool`: Generates financial insights from purchase history
-Also, we leverage LangChain's wrappers to wrap other Agents as Tools for the `CoordinatorAgent` to use.
+The Self-Reflection pattern is implemented in the `ReceiptReaderAgent` through the `_reflect_on_results()` method, which validates and potentially corrects extracted data. When processing receipts, the agent extracts data and then "reflects" on whether the results make sense. For example, it identifies generic merchant names like "receipt" or "store" and attempts to find more specific merchant names from the raw text. It also validates dates and item categories. This pattern improves data quality by identifying and correcting common errors, reducing the need for human intervention, and learning from past mistakes.
 
-### 1.5 Prompt/Response Optimizer Pattern
-This pattern is implemented through engineered system prompts by:
-- Provides structured templates for agent responses
-- Includes domain-specific knowledge in prompts
-- Delivers consistent outputs across interactions
-- Improves efficiency by reducing clarification loops
+### 1.5. Retrieval Augmented Generation (RAG) Pattern
 
-For example, the ReceiptParserTool uses a detailed system prompt with processing rules and expected output format to optimize the extraction process.
+The RAG pattern enhances the agent's knowledge with external data from the SQLite database. The system uses `PurchaseMemory` to store structured purchase data and provides tools like `SQLQueryTool` to query this database. When users ask questions about their spending patterns, the agent can retrieve relevant transaction data to provide personalized responses rather than relying solely on its pre-trained knowledge. This pattern enables the foundation model to access domain-specific knowledge, provide personalized responses based on user data, and perform temporal analysis of spending patterns without needing to retrain the model.
 
 ## 2. Tool Comparison and Selection Rationale
 
@@ -72,69 +49,13 @@ TBD
 
 
 ## 3. Conceptual Design and Use Cases
+The core function of Sticklet is to scan and transform receipt images into structured data that augments the personal financial agent. Users are able to upload receipt images through the web interface, which is then processed to extract information such as merchant, transaction date, total amount, the items purchased, etc and store them into persistent database. Using these data, the agent can help to provide relevant information about the users expenses. 
 
-### 3.1 System Architecture
+### 3.1 Use Case: Natural Language Financial Queries
+Users can interact with Sticklet through natural language questions about their spending habits and financial patterns. The `CoordinatorAgent` processes these queries by translating them into appropriate database operations using tools like `SQLQueryTool` and `InsightGeneratorTool`. The system can answer questions ranging from simple lookups ("How much did I spend at Trader Joe's?") to complex analyses ("How has the price of white rice that I bought changed over time?"). This enables users to gain insights about their finances without needing to know specialized query languages or spreadsheet operations.
 
-Sticklet implements a multi-agent architecture with the following components:
+### 3.2 Use Case: Monthly Reporting & Analysis
+Sticklet generates comprehensive monthly reports that provide users with an overview of their spending patterns. The `MonthlyReportAgent` aggregates all transaction data for a specified month, calculates totals by category and merchant, identifies high-spend days, and generates narrative summaries using the Mistral API. These reports include both quantitative data visualizations (spending trends, category breakdowns) and qualitative analysis (patterns, anomalies, recommendations), giving users actionable insights about their financial behavior without requiring manual data compilation.
 
-**CoordinatorAgent**: The central orchestrator that:
-- Manages user interactions
-- Delegates specialized tasks to appropriate agents
-- Maintains consistent memory access
-- Handles errors and state management
-
-**ReceiptReaderAgent**: Specializes in extracting data from receipt images:
-- Uses OCR to extract raw text
-- Parses text into structured data
-- Performs validation and correction
-- Categorizes items and expenses
-
-**MonthlyReportAgent**: Generates financial insights and reports:
-- Aggregates monthly spending data
-- Identifies spending patterns and trends
-- Produces narrative summaries using LLMs
-- Visualizes financial data
-
-**MarketAgent**: Provides market data and news:
-- Fetches current market indicators
-- Retrieves historical price data
-- Generates market summaries using LLMs
-- Relates market trends to personal finance
-
-**Streamlit Web App**: Provides the user interface for:
-- Uploading and processing receipts
-- Viewing transaction history
-- Generating reports
-- Getting market updates
-- Asking questions about finances
-
-### 3.2 Core Use Cases
-
-**Use Case 1: Receipt Processing**
-1. User uploads a receipt image
-2. System performs OCR using Mistral API
-3. System extracts structured data (merchant, date, items, amounts)
-4. User verifies and adjusts extracted data if needed
-5. System stores the validated receipt data in the database
-6. System confirms successful storage and updates financial metrics
-
-**Use Case 2: Financial Query Answering**
-1. User asks a natural language question about their finances
-2. Coordinator agent analyzes the query using ReAct pattern
-3. System retrieves relevant purchase data through SQL queries
-4. Agent generates a coherent and accurate response
-5. System presents the answer to the user
-
-**Use Case 3: Monthly Report Generation**
-1. User requests a monthly spending report
-2. System retrieves all purchases for the specified month
-3. System aggregates data by merchant, category, and day
-4. LLM generates a narrative report explaining spending patterns
-5. System presents the report with visualizations to the user
-
-**Use Case 4: Market Monitoring**
-1. User navigates to the Market & News section
-2. System fetches current market data from external sources
-3. System retrieves 7-day historical data for major indices
-4. System generates a narrative market summary using LLM
-5. System presents market data and summary to the user
+### 3.3 Use Case: Market Intelligence Integration
+The Market Agent connects personal finance data with broader market context by tracking major market indices (S&P 500, Dow Jones, NASDAQ) and generating tailored market summaries. Users can view 7-day historical market data and receive AI-generated narratives that explain market movements. This integration helps users understand how external economic factors might impact their personal finances and make more informed decisions about future spending or investments.
