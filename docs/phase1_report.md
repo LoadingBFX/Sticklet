@@ -45,17 +45,78 @@ The RAG pattern enhances the agent's knowledge with external data from the SQLit
 
 ## 2. Tool Comparison and Selection Rationale
 
-To build Sticklet, a multimodal personal receipt management portal powered by LLM agents, we conducted a comparative evaluation of candidate tools across five core components: OCR, LLM reasoning, agent orchestration, memory, and front-end integration.
+To develop Sticklet—a multimodal personal receipt management portal powered by LLM agents—we conducted a detailed evaluation of candidate tools across five key technical components:
 
-We considered traditional OCR tools such as Tesseract and PaddleOCR, but ultimately selected Mistral OCR due to its robust image-to-text performance and seamless integration with language models. Traditional OCR pipelines typically require a separate Key Information Extraction (KIE) step after text recognition, which introduces additional complexity and often suffers from lower stability and accuracy, especially with noisy or unstructured receipt layouts. In contrast, Vision-Language Models (VLMs) like Mistral can directly interpret the visual content of the image and extract structured information in one step, offering a more end-to-end and robust solution. Moreover, Mistral’s multimodal API handles cropped, tilted, or degraded receipt images more effectively than conventional OCR + KIE pipelines, reducing pre-processing overhead. The API is currently free to use, making it ideal for our course-level prototype. If needed, it can be easily replaced with other vision-capable LLMs such as GPT-4o, Gemini, or Claude in future extensions, ensuring long-term flexibility and portability.
+- OCR & Information Extraction  
+- Language Model Reasoning  
+- Agent Orchestration  
+- Memory & Persistence  
+- Financial Data Integration  
 
-For natural language understanding and reasoning, we adopted a hybrid approach using both OpenAI models (GPT-4, GPT-3.5) and Mistral LLMs. OpenAI’s models demonstrated strong performance in agent orchestration, task decomposition, and natural language summarization, making them the preferred choice for high-quality interactions and complex reasoning chains. However, we acknowledge that Mistral’s current capabilities still lag behind GPT-4, particularly in multi-step reasoning and instruction following. That said, Mistral offers free or low-cost inference, making it a valuable fallback option when cost or rate limits are a concern. To balance performance with affordability, we adopted a dual-model strategy: GPT-4 is prioritized for critical reasoning tasks where high fidelity is desired, while Mistral serves as a fallback model for routine processing or when operating under resource constraints. This setup allows us to maintain a high-quality user experience without exceeding budget limitations, while also ensuring modularity and future extensibility.
+### 2.1 OCR and Information Extraction
 
-To persist and query purchase history, we selected LangChain’s memory components—specifically SimpleMemory and ReadOnlySharedMemory. LangChain is currently one of the most mature and actively maintained frameworks in the agentic ecosystem. It provides a rich set of tools for agent orchestration, memory management, and tool integration. Its well-documented and modular design allowed us to quickly build a context-aware system that supports reasoning across past purchases and user queries with minimal setup overhead.
+We compared traditional OCR tools like **Tesseract** and **PaddleOCR** with emerging **Vision-Language Models (VLMs)** like **Mistral**. While conventional pipelines require a separate **Key Information Extraction (KIE)** stage after text recognition, VLMs integrate both steps and support unstructured layouts with better robustness.
 
-For market data and financial news, we adopted a two-pronged strategy. Market data is retrieved using the Yahoo Finance API, which provides up-to-date stock prices and financial indicators. For financial news, we currently rely on the LLM’s built-in browsing or plugin capability to access and summarize real-time news content. This approach reduces integration complexity while leveraging the LLM’s language understanding to generate concise, user-friendly summaries from live sources.
+We selected **Mistral OCR** due to:
 
-Overall, our toolchain selection balances performance, extensibility, and developer productivity. We prioritized tools that are either free or cost-efficient, quick to implement, and compatible with future upgrades. Our goal is to rapidly deliver a functional MVP while ensuring that the architecture remains flexible and scalable for future enhancements in reasoning quality, model capabilities, or external data sources.
+- **Superior multimodal performance**: Robust handling of tilted, cropped, or degraded receipt images.
+- **One-shot structured extraction**: Avoids fragile OCR → NLP cascades.
+- **API availability**: Currently free, well-documented, and easily replaceable (e.g., GPT-4o or Gemini).
+
+This end-to-end approach reduces pre-processing complexity and improves system resilience.
+
+### 2.2 Language Model Reasoning
+
+For natural language understanding and reasoning tasks (e.g., agent coordination, summarization), we adopted a hybrid strategy:
+
+- **GPT-4** for high-quality orchestration and instruction-following.
+- **Mistral LLM** as a fallback for lightweight or budget-sensitive queries.
+
+This dual-model strategy balances **performance** and **cost-effectiveness**, while maintaining **modularity** and **scalability**. High-stakes reasoning runs on GPT-4; routine extraction or summarization defaults to Mistral.
+
+### 2.3 Agent Orchestration and Framework
+
+We chose **LangChain** as the primary framework due to:
+
+- **Rich agent tooling** (`AgentExecutor`, `ReAct`, OpenAI function-based agents).
+- **Tool integration support** (`BaseTool`, custom tool registration).
+- **Prompt management** (`ChatPromptTemplate`, `MessagesPlaceholder`).
+- **Memory and context-sharing components** (`SimpleMemory`, `SharedMemory`).
+
+LangChain’s modular, Pythonic design enabled rapid prototyping and extension across the entire multi-agent pipeline.
+
+### 2.4 Memory and Database
+
+For persistent memory and structured querying, we used:
+
+- **SQLite** for backend data storage.
+- **LangChain Memory** tools (`SimpleMemory`, `ReadOnlySharedMemory`) for fast lookup and agent context propagation.
+
+This setup supports seamless integration between reasoning agents and historical data, especially for personalized queries and temporal pattern analysis.
+
+### 2.5 Financial Market Integration
+
+We adopted a **two-layered approach**:
+
+- **Market data** via the **Yahoo Finance API** (for stock indices, prices).
+- **Financial news** using **LLM browsing** or plugin tools (e.g., GPT with browsing tools) for real-time headline summarization.
+
+This balances **structured data retrieval** with **natural language summarization**, keeping the user informed of external trends relevant to their purchases.
+
+### 2.6 Tool Summary Table
+
+| Function Area           | Candidates                        | Final Choice       | Rationale |
+|-------------------------|-----------------------------------|--------------------|-----------|
+| **OCR**                 | Tesseract, PaddleOCR, Mistral     | **Mistral VLM**    | End-to-end extraction, robust to noise |
+| **LLM Reasoning**       | GPT-4, Mistral           | **GPT-4 + Mistral**| Fidelity + fallback affordability |
+| **Agent Framework**     | LangChain, Autogen                | **LangChain**      | Mature ecosystem, prompt/memory/tools |
+| **Memory / Persistence**| Custom SQLite, LangChain memory   | **LangChain + SQLite** | Rich context + structured data |
+| **Market Data & News**  | Yahoo API, News Scraping, Plugins | **Yahoo + LLM**    | Accurate + low-integration overhead |
+
+---
+
+This toolchain enabled us to quickly build a robust, multimodal MVP with high accuracy, modularity, and extensibility—while staying within a course project’s budget and time constraints.
+
 
 
 ## 3. Conceptual Design and Use Cases
