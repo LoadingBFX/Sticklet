@@ -1,4 +1,9 @@
-# 🌿 Sticklet: A Personal Receipt Journal by Scotty 🐶
+# 🌿 Sticklet: A Personal Receipt Journal 🐶
+
+Fanxing Bu, Ivan Wiryadi  
+
+Carnegie Mellon University
+
 
 ## ⚠️ Disclaimer
 This repository contains a prototype developed for a course project. It is intended for educational and experimental purposes only. It **must not** be relied upon for actual financial decision-making or investment use. It is **not** production-ready.
