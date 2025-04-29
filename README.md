@@ -4,7 +4,7 @@
 ![LangChain](https://img.shields.io/badge/LLM%20framework-LangChain-purple)
 ![Mistral](https://img.shields.io/badge/OCR-MistralAI-green)
 ![Streamlit](https://img.shields.io/badge/UI-Streamlit-orange)
-![Made with Love](https://img.shields.io/badge/made%20with-%E2%9D%A4-red)
+![Stars](https://img.shields.io/github/stars/your-org/your-repo?style=social)
 
 <p align="center">
   <strong>✍️ Authors ✍️</strong><br>
