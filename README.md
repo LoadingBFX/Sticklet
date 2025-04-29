@@ -153,7 +153,7 @@ cp .env.example .env
 
 ## 📸 Screenshots
 ![UI](assets/home-screenshot.png)
-![Chat](assets/others/image-1.png)
+![Chat](assets/qa.jpeg)
 ---
 
 ## 📬 Contact
