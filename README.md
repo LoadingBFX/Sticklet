@@ -15,36 +15,59 @@
 ---
 
 ## ⚠️ Disclaimer
-This repository contains a prototype developed for a course project. It is intended for educational and experimental purposes only. It **must not** be relied upon for actual financial decision-making or investment use. It is **not** production-ready.
+This repository contains a prototype developed for a course project at Carnegie Mellon University. It is intended for educational and experimental purposes only. It **must not** be relied upon for actual financial decision-making or investment use. It is **not** production-ready.
 
 ![Scotty fetching a stick](assets/logo.png)
 
 ---
 
-## 🚀 Introduction
-Every time Scotty goes out to play, he brings home a little stick. Each stick is a memory—a tiny story in his daily journal.
+## 🚩 Problem & Motivation
 
-Just like that, every time **you go out shopping**, you can bring back a **receipt**—your own little “stick.” Sticklet lets you upload an image of that receipt, and in return:
-- It records **where** you shopped,
-- **what** you bought,
-- and **how much** you paid.
+### ❗ Real-World Pain Points
+- **Receipts Are Often Ignored, But Rich in Value**  
+  Receipts contain essential data for tracking and analysis, yet most are discarded after purchase.
 
-It can even suggest recipes, track prices over time, summarize your spending, and more.
+- **Traditional OCR Fails on Real-World Receipts**  
+  Layouts and quality vary widely—conventional OCR tools perform poorly without manual correction.
 
-✨ Start building Scotty’s little nest—one stick (receipt) at a time.
+- **Fragmented Financial Tracking**  
+  Mobile payment apps only cover partial transactions; users lack a unified financial view.
+
+### ✨ Our Vision
+- **Seamless Expense Capture**  
+  Just upload a receipt—Sticklet auto-extracts structured data like merchant, items, prices, and timestamps.
+
+- **VLM + LLM = Smarter OCR**  
+  Visual-language models (VLM) combined with large language models (LLM) enable robust extraction and adaptive reasoning.
+
+- **Context-Aware Financial Insights**  
+  The system uncovers spending trends and suggests budgets, recipes, and forecasts personalized to each user.
 
 ---
 
-## 📚 Project Overview
-Sticklet is a **multi-agent, AI-powered personal financial assistant** that manages and analyzes your shopping receipts. Using OCR, LLM agents, memory systems, and a modular toolchain, it provides:
+## 🌟 Key Features
 
-- 🧾 Automated receipt parsing
-- 📊 Monthly expense summaries
-- 🧠 Persistent memory and insights
-- 🗞️ Market news contextualized to your habits
-- 💬 Natural language querying
+- 📷 **One-Click Receipt Upload** — Upload and parse instantly with no manual steps.
+- 🧠 **AI-Powered Extraction (VLM + LLM)** — Accurate parsing of unstructured receipts.
+- 💾 **Persistent Purchase Memory** — Structured, searchable logs of your purchase history.
+- 📊 **Monthly Report Generation** — Visualizes spending trends and top merchants.
+- 💬 **Natural Language Q&A** — Ask: "Where did I spend the most last month?"
+- 📰 **Financial News Integration** — Market updates linked to spending habits.
+- 📈 **Context-Aware Insights** — Personalized suggestions based on purchase patterns.
+- 🧩 **Modular Multi-Agent Design** — Specialized agents for scalability and explainability.
 
-Built with [LangChain](https://www.langchain.com/), [Mistral AI](https://mistral.ai/), and [Streamlit](https://streamlit.io/), this prototype showcases multi-modal reasoning and tool use in personal finance.
+---
+
+## 📚 System Overview
+Sticklet is a **multi-agent, AI-enhanced receipt management tool** designed to:
+
+- Extract structured data from real-world receipts
+- Maintain a persistent memory of user purchases
+- Offer explainable insights and reports
+- Answer user questions in natural language
+- Contextualize financial news relevant to users
+
+Built using [LangChain](https://www.langchain.com/), [Mistral AI](https://mistral.ai/), and [Streamlit](https://streamlit.io/) for an interactive experience.
 
 ---
 
@@ -65,62 +88,65 @@ agentic-project/
 
 ## 🧠 Core Components
 ### 🤖 Agents
-- **Coordinator Agent**: Delegates user tasks to others
-- **Receipt Reader Agent**: OCR + parsing
-- **Monthly Report Agent**: Spending summaries
-- **Market Agent**: News retrieval & summarization
+- **Coordinator Agent** — Manages all user interactions and delegates tasks
+- **Receipt Reader Agent** — Uses OCR + parsing for image analysis
+- **Monthly Report Agent** — Summarizes expense history
+- **Market Agent** — Retrieves & summarizes market news
 
 ### 🛠 Tools
-- `receipt_tools.py`: Mistral OCR + structured parsing
-- `memory_tools.py`: Purchase memory and insights
-- `receipt_processor_tool.py`: Validation & storage
-- `fetch_market_data.py`: Pulls financial market data
+- `receipt_tools.py` — Receipt OCR + text parsing
+- `memory_tools.py` — Memory access + insights
+- `receipt_processor_tool.py` — Data validation + storage
+- `fetch_market_data.py` — News & financial data retrieval
 
 ### 💾 Memory System
 - `Purchase` and `PurchaseItem` schemas
-- Filters by date, category, merchant
-- Shared LangChain memory for agents
+- Supports filtering by date, merchant, category
+- Integrates with LangChain memory for agent access
 
 ---
 
-## 💡 Why LangChain, Mistral, and OpenAI?
-- **LangChain**: Tool-using agents, memory, and prompt templates
-- **Mistral**: OCR and multimodal receipt parsing
-- **OpenAI**: Query understanding and financial insights
+## 🤖 Tech Stack Rationale
+- **LangChain** — Agent architecture, tool use, memory, and prompt templating
+- **Mistral AI** — Visual OCR model for receipt extraction
+- **OpenAI** — LLMs for reasoning, summarization, and response generation
 
 ---
 
-## ⚙️ Example Workflows
+## 🔁 Example Workflows
 ### 📤 Receipt Upload
-1. Coordinator receives image
-2. Reader extracts & parses
-3. Memory logs purchase
+1. Upload receipt image
+2. Coordinator calls reader agent
+3. Text is extracted → structured → stored
 
 ### 📅 Monthly Report
-1. User requests summary
-2. Agent analyzes memory
-3. Returns top stores, categories, and trends
+1. Request insights
+2. Report agent analyzes history
+3. Output: spending trends, top categories
 
 ### 📰 News Summary
-1. Market Agent fetches headlines
-2. OpenAI summarizes
-3. Contextualizes to user spending habits
+1. Agent fetches headlines
+2. OpenAI summarizes key events
+3. Personalizes to user's spending areas
 
-### ❓ Natural Language Queries
-1. User asks a question
-2. Coordinator delegates
-3. Memory + Insights tools generate answer
+### ❓ Natural Language Q&A
+1. Ask financial question
+2. Coordinator routes to memory/insight tools
+3. Agents answer based on stored data
 
 ---
 
 ## 🧪 Setup Instructions
 ```bash
-# Python 3.13 (or compatible)
+# Install Python 3.13 and dependencies
+pip install -r requirements.txt
+
+# Run the app
 python app.py
 
 # Set up environment variables
 cp .env.example .env
-# Fill in MISTRAL_API_KEY, OPENAI_API_KEY
+# Add MISTRAL_API_KEY and OPENAI_API_KEY
 ```
 
 ---
@@ -128,7 +154,6 @@ cp .env.example .env
 ## 📸 Screenshots
 ![UI](assets/home-screenshot.png)
 ![Chat](assets/others/image-1.png)
-
 ---
 
 ## 📬 Contact
